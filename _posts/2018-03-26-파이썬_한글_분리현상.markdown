@@ -1,0 +1,123 @@
+---
+layout: post
+title:  파이썬 한글 분리현상
+date:   2018-03-26 01:25:07 +0900
+categories: TIL
+published: True
+tags: til python
+---
+## 문제
+파일명을 `os`모듈로 받아와서 사용하는 경우에 문제가 발생하는 것을 발견했다.  
+인터프리터에는 별문제 없이 표시가 되는데 `openpyxl`로 해당 한글을 작성했을때  
+`기차.txt`가 `ㄱㅣㅊㅏ.txt` 라고 입력되는 문제였다.  
+재밌는건 `os`모듈로 파일명을 가져올 경우 같은 한글을 타입했을때 불일치한다고 나온다.
+```python
+>>> name = os.listdir()[1] # 기차.txt
+>>> name == '기차.txt'
+False
+```
+<hr>
+## 원인
+열심히 구글링 해보니  
+> 이 이슈는 Mac OS 와 Windows 가 서로 다른 Unicode Nomalization Form 을 사용하기 때문입니다.  
+출처: [네이버블로그](https://m.blog.naver.com/PostView.nhn?blogId=yo2dh&logNo=221046558381&proxyReferer=https%3A%2F%2Fwww.google.com%2F){: .link}
+
+솔직히 잘 모르겠고 해결방법을 찾기로 했다.
+<hr>
+## 탐구
+위에서 모듈로 가져온 한글과 타입했을 떄 한글이 불일치 했기떄문에 무엇이 다른지 확인해봤다.
+```python
+>>> len(name) # 위에서 정의한 변수이다.
+8
+>>> len('기차.txt')
+6
+```
+둘의 길이가 다른것을 알수 있다.  
+컴퓨터가 문자를 저장할때 어떤 숫자열로 저장하는 지 확인할수 있는 `ord()`를 이용해 확인해봤다.
+```python
+>>> ord(name[0])
+4352
+>>> ord('ㄱ')
+12593
+```
+같은 'ㄱ'이지만 컴퓨터 내에서는 다른 숫자로 저장을 하고 있는 것을 확인했다.  
+사실 보통 '기차.txt'를 인덱싱 했을때 0번째 인덱스에 'ㄱ'이 나오는 것 자체가 이상한 일이지만..  
+이 것을 통해 확인할 수 있는 것은 `os`모듈로 가져왔을 경우 인터프리터에는 한글로 나오지만 사실은   
+초정 중성 종성의 값을 가진 자모의 형태의 리스트 혹은 스트링 이였다는 사실이다.  
+한글이 만들어지는 원리는 설명하기 기니 해당 포스트를 확인하면 된다.  
+[NLP 한글 유니코드 자소 분리 with Python3 링크](http://rachelee.org/79){: .post_link}
+<hr>
+### 해결방안
+유니코드로 다시 조합하기로 했다.  
+유니코드는 '가'로 시작해되는 테이블에 정의되어있다.-> [유니코드 한글 테이블](https://www.unicode.org/charts/PDF/UAC00.pdf){: .link}  
+'나'를 찾는 다고 가정했을때 '가'에 해당하는 0xAC00(44032)부터 시작해서 'ㄱ'에 해당하는 중성 21개 종성 28와 'ㄲ'에 해당하는 중성 21개 종성 28개를 모두 지나간 후에야 'ㄴ'초성의 글자들이 나온다.  
+결국 44032+(21*28*2)을 한 45208이 '나'에 해당하는 유니코드 숫자열이된다.  
+결국 해당하는 문자열을 가져오기 위해서는  
+`초성인덱스*28*21+중성인덱스*28+종성인덱스 = (초성인덱스*21+중성인덱스)*28+종성인덱스` 가된다.
+
+**코드**
+먼저 os모듈로 가져온 한글의 경우 초성 중성 종성에 해당하는 각각의 자모형태이기 떄문에  
+초성인지 중성인지 종성인지 확인후 몇번쨰인지를 찾으면 해결된다.  
+초성: 4352  
+중성: 4449  
+종성: 4520  
+으로 시작된다.
+<p class="code-label">hangul.py</p>
+```python
+cho_start = 4352
+jung_start = 4449
+jong_start = 4520
+jong_end = 4549
+cho_list =[u"ㄱ",u"ㄲ",u"ㄴ",u"ㄷ",u"ㄸ",u"ㄹ",u"ㅁ",u"ㅂ",u"ㅃ",u"ㅅ",u"ㅆ",u"ㅇ",u"ㅈ",u"ㅉ",u"ㅊ",u"ㅋ",u"ㅌ",u"ㅍ",u"ㅎ"]
+jung_list = [u"ㅏ",u"ㅐ",u"ㅑ",u"ㅒ",u"ㅓ",u"ㅔ",u"ㅕ",u"ㅖ",u"ㅗ",u"ㅘ",u"ㅙ",u"ㅚ",u"ㅛ"\
+            ,u"ㅜ",u"ㅝ",u"ㅞ",u"ㅟ",u"ㅠ",u"ㅡ",u"ㅢ",u"ㅣ"]
+jong_list = [u"",u"ㄱ",u"ㄲ",u"ㄳ",u"ㄴ",u"ㄵ",u"ㄶ",u"ㄷ",u"ㄹ",u"ㄺ",u"ㄻ",u"ㄼ",u"ㄽ",u"ㄾ"\
+            ,u"ㄿ",u"ㅀ",u"ㅁ",u"ㅂ",u"ㅄ",u"ㅅ",u"ㅆ",u"ㅇ",u"ㅈ",u"ㅊ",u"ㅋ",u"ㅌ",u"ㅍ",u"ㅎ"]
+
+def combine(cho,jung,jong):
+  return chr((cho*21+jung)+jong)
+
+def reorganize_hangul2(line):
+result = ""
+finish = False
+jong_index = 0 #종성은 없는 경우가 있기 때문에 먼저 정의해준다.
+for index,letter in enumerate(line):
+  letter  = ord(letter)
+  if letter>=cho_start and letter<jung_start:       #초성일경우
+  #첫번째가 아니고 초성이 돌아왔을 경우는 한글이 완성 되었기 때문에 결과값을 가져온다.
+  if index != 0 and finish:                           
+      result += combine(cho_index,jung_index,jong_index)
+      cho_index = 0
+      jung_index = 0
+      jong_index = 0
+    cho_index = letter-cho_start
+    finish = True
+  elif letter>=jung_start and letter<jong_start:    #중성일경우
+    jung_index = letter-jung_start
+  elif letter>=jong_start and letter<4549:          #종성일경우
+    jong_index = letter-jong_start+1
+  else:
+    # 첫번째가 아니고 한글이 아닌 것이 왔을 경우 한글이 완성됬음으로 결과값을 가져온다.
+    if index != 0 and finish:                          
+      result += combine(cho_index,jung_index,jong_index)
+      cho_index = 0
+      jung_index = 0
+      jong_index = 0
+      finish = False
+    letter = chr(letter)
+    result += letter
+return result
+```
+## 결론
+```python
+>>> import os
+>>> from hangul import *
+>>> name = os.listdir()[2] # 기차.txt
+>>> name == '기차.txt'
+False
+>>> reorganize_hangul(name) == '기차.txt'
+True
+```
+`openpyxl`로 작성했을때도 한글이 분리되어 작성되는 현상이 해결됬다.
+
+위에 작성된 코드는 -> [링크](https://github.com/Biggyhand18/biggyhand18.github.io/tree/master/samples){: .post_link}

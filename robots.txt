@@ -1,0 +1,4 @@
+Sitemap: https://biggyhand18.github.io/sitemap.xml
+
+User-agent: *
+Allow: /
