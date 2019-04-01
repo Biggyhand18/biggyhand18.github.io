@@ -1,0 +1,85 @@
+---
+layout: post
+title:  카카오#1
+date:   2019-04-01 01:02:00
+categories: TIL
+published: True
+tags: python c++
+---
+
+## c++
+```c++
+#include <iostream>
+#include <cstring>
+#include <bitset>
+using namespace std;
+
+char ** kakao1(int n, int arry1[], int arry2[]);
+
+int main(){
+    int n = 5;
+    int arry1[] = {9, 20, 28, 18, 11};
+    int arry2[] = {30, 1, 21, 17, 28};
+    char ** result;
+
+    result = kakao1(n, arry1, arry2);
+    for(int h = 0; h < n; h++)
+      cout << result[h] << endl;
+
+    for(int i = 0; i < n; i++){
+      delete[] result[i];
+    }
+    delete[] result;
+    return 0;
+}
+
+char ** kakao1(int n, int arry1[], int arry2[]){
+  int arr;
+    int targetBit;
+    char temp[n + 1];
+    char ** result = new char * [n];
+
+    temp[n] = '\0';
+    for(int i = 0; i < n; i++){
+        arr = arry1[i] | arry2[i];
+        targetBit = 1;
+        result[i] = new char[n + 1];
+        for(int j = 0; j < n; j++){
+            temp[n-j-1] = ((arr & targetBit) > 0 ? '#' : ' ');  
+            targetBit = targetBit << 1;
+        }
+        strcpy(result[i], temp);
+    }
+
+    return result;
+}
+
+```
+
+## python
+```python
+#!/usr/bin/env python
+#-*- coding: utf-8 -*-
+
+def kakao1(size, arry1, arry2):
+  result = []
+  for i in range(size):
+    arr = arry1[i] | arry2[i]
+    targetBit = 1
+    temp = ""
+    for j in range(size):
+      temp = ("#" if ((arr & targetBit) > 0) else " ") + temp
+      targetBit = targetBit << 1
+
+    result.append(temp)
+  return result
+
+    
+
+if __name__ == "__main__":
+  arry1 = [9, 20, 28, 18, 11]
+  arry2 = [30, 1, 21, 17, 28]
+  result = kakao1(5, arry1, arry2)
+  for i in result:
+    print(i)
+```
